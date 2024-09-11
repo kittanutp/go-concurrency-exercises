@@ -10,6 +10,8 @@
 
 package main
 
+import "time"
+
 // User defines the UserModel. Use this to check whether a User is a
 // Premium user or not
 type User struct {
@@ -21,8 +23,39 @@ type User struct {
 // HandleRequest runs the processes requested by users. Returns false
 // if process had to be killed
 func HandleRequest(process func(), u *User) bool {
-	process()
-	return true
+	if !u.IsPremium && u.TimeUsed >= 10 {
+		return false
+	}
+	done := make(chan bool)
+	startTime := time.Now()
+	go func() {
+		process()
+		done <- true
+
+	}()
+
+	timeRemaining := int64(10) - u.TimeUsed
+	if timeRemaining < 0 {
+		timeRemaining = 0
+	}
+
+	for {
+		select {
+		case <-done:
+			timeTaken := time.Since(startTime).Seconds()
+			if !u.IsPremium {
+				u.TimeUsed += int64(timeTaken)
+			}
+			return true
+		case <-time.After(time.Second * time.Duration(timeRemaining)):
+			if !u.IsPremium {
+				timeTaken := time.Since(startTime).Seconds()
+				u.TimeUsed += int64(timeTaken)
+				return false
+			}
+
+		}
+	}
 }
 
 func main() {
