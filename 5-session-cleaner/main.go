@@ -20,17 +20,21 @@ package main
 import (
 	"errors"
 	"log"
+	"sync"
+	"time"
 )
 
 // SessionManager keeps track of all sessions from creation, updating
 // to destroying.
 type SessionManager struct {
 	sessions map[string]Session
+	sync     sync.Mutex
 }
 
 // Session stores the session's data
 type Session struct {
-	Data map[string]interface{}
+	Data       map[string]interface{}
+	LastUpdate time.Time
 }
 
 // NewSessionManager creates a new sessionManager
@@ -63,6 +67,8 @@ var ErrSessionNotFound = errors.New("SessionID does not exists")
 // GetSessionData returns data related to session if sessionID is
 // found, errors otherwise
 func (m *SessionManager) GetSessionData(sessionID string) (map[string]interface{}, error) {
+	m.sync.Lock()
+	defer m.sync.Unlock()
 	session, ok := m.sessions[sessionID]
 	if !ok {
 		return nil, ErrSessionNotFound
@@ -72,6 +78,8 @@ func (m *SessionManager) GetSessionData(sessionID string) (map[string]interface{
 
 // UpdateSessionData overwrites the old session data with the new one
 func (m *SessionManager) UpdateSessionData(sessionID string, data map[string]interface{}) error {
+	m.sync.Lock()
+	defer m.sync.Unlock()
 	_, ok := m.sessions[sessionID]
 	if !ok {
 		return ErrSessionNotFound
@@ -84,6 +92,8 @@ func (m *SessionManager) UpdateSessionData(sessionID string, data map[string]int
 
 	return nil
 }
+
+var wg sync.WaitGroup
 
 func main() {
 	// Create new sessionManager and new session
@@ -111,6 +121,28 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	go m.MangeSession()
 	log.Println("Get session data:", updatedData)
+	wg.Wait()
+}
+
+func (m *SessionManager) MangeSession() {
+	if len(m.sessions) > 0 {
+		var deletedKey []string
+		for id, sess := range m.sessions {
+			if time.Since(sess.LastUpdate) >= 5 {
+				deletedKey = append(deletedKey, id)
+			}
+		}
+
+		for _, key := range deletedKey {
+			delete(m.sessions, key)
+		}
+	}
+
+	if len(m.sessions) > 0 {
+		go m.MangeSession()
+	}
+
+	wg.Done()
 }
