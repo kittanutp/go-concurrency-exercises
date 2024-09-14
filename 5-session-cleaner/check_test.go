@@ -34,6 +34,7 @@ func TestSessionManagersCreationAndUpdate(t *testing.T) {
 	if data["website"] != "longhoang.de" {
 		t.Error("Expected website to be longhoang.de")
 	}
+	m.StopSession()
 }
 
 func TestSessionManagersCleaner(t *testing.T) {
@@ -49,6 +50,7 @@ func TestSessionManagersCleaner(t *testing.T) {
 	if err != ErrSessionNotFound {
 		t.Error("Session still in memory after 7 seconds")
 	}
+	m.StopSession()
 }
 
 func TestSessionManagersCleanerAfterUpdate(t *testing.T) {
@@ -77,4 +79,5 @@ func TestSessionManagersCleanerAfterUpdate(t *testing.T) {
 	if err != ErrSessionNotFound {
 		t.Error("Session still in memory 7 seconds after update")
 	}
+	m.StopSession()
 }
